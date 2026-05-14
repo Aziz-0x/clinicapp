@@ -41,15 +41,15 @@ public class Dashboard extends JFrame {
 
     private JPanel createLoginPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(new Color(45, 45, 45));
+//        panel.setBackground(new Color(45, 45, 45));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
 
         JTextField txtUsername = new JTextField(15);
         JPasswordField txtPassword = new JPasswordField(15);
         JButton btnLogin = new JButton("Login");
-        btnLogin.setBackground(new Color(70, 130, 180));
-        btnLogin.setForeground(Color.WHITE);
+//        btnLogin.setBackground(new Color(70, 130, 180));
+//        btnLogin.setForeground(Color.WHITE);
 
         btnLogin.addActionListener(e -> {
             try {
@@ -73,8 +73,8 @@ public class Dashboard extends JFrame {
             } catch (Exception ex) { JOptionPane.showMessageDialog(this, "DB Error"); }
         });
 
-        JLabel lblU = new JLabel("Username:"); lblU.setForeground(Color.WHITE);
-        JLabel lblP = new JLabel("Password:"); lblP.setForeground(Color.WHITE);
+        JLabel lblU = new JLabel("Username:"); // lblU.setForeground(Color.WHITE);
+        JLabel lblP = new JLabel("Password:"); // lblP.setForeground(Color.WHITE);
         gbc.gridx = 0; gbc.gridy = 0; panel.add(lblU, gbc); gbc.gridx = 1; panel.add(txtUsername, gbc);
         gbc.gridx = 0; gbc.gridy = 1; panel.add(lblP, gbc); gbc.gridx = 1; panel.add(txtPassword, gbc);
         gbc.gridx = 1; gbc.gridy = 2; panel.add(btnLogin, gbc);
