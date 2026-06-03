@@ -3,23 +3,8 @@ package clinicapp;
 import java.sql.*;
 
 public class EmergencyContact {
-    private int patientId;
-    private String contactName;
-    private String contactNumber;
-    private String relationship;
-
-    public EmergencyContact(int patientId, String contactName, String contactNumber, String relationship) {
-        this.patientId = patientId;
-        this.contactName = contactName;
-        this.contactNumber = contactNumber;
-        this.relationship = relationship;
-    }
 
     // Getters
-    public int getPatientId() { return patientId; }
-    public String getContactName() { return contactName; }
-    public String getContactNumber() { return contactNumber; }
-    public String getRelationship() { return relationship; }
     
     public static void addContact(int patId, String name, String phone, String relation) throws Exception {
         try (Connection conn = DBConnection.getConnection();

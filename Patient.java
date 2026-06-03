@@ -3,32 +3,6 @@ package clinicapp;
 import javax.swing.table.DefaultTableModel;
 import java.sql.*;
 public class Patient {
-    private String patientId;
-    private String firstName;
-    private String middleName;
-    private String lastName;
-    private String dob;
-    private String phoneNumber;
-
-    public Patient(String patientId, String firstName, String middleName, String lastName, String dob, String phoneNumber) {
-        this.patientId = patientId;
-        this.firstName = firstName;
-        this.middleName = middleName;
-        this.lastName = lastName;
-        this.dob = dob;
-        this.phoneNumber = phoneNumber;
-    }
-
-    public String getFullName() {
-        return firstName + " " + middleName + " " + lastName;
-    }
-
-    public String getPatientId() { return patientId; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
-    public String getDob() { return dob; }
-    public String getPhoneNumber() { return phoneNumber; }
-    
     
     public static void loadPatientsData(DefaultTableModel model, String currentRole, int currentDoctorId) {
         model.setRowCount(0);

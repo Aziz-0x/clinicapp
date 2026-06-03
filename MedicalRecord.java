@@ -2,25 +2,6 @@ package clinicapp;
 import java.sql.*;
 
 public class MedicalRecord {
-    private int recordId;
-    private String bloodType;
-    private int patientId;
-    private int doctorId;
-    private String clinicalNotes;
-
-    public MedicalRecord(int recordId, String bloodType, int patientId, int doctorId, String clinicalNotes) {
-        this.recordId = recordId;
-        this.bloodType = bloodType;
-        this.patientId = patientId;
-        this.doctorId = doctorId;
-        this.clinicalNotes = clinicalNotes;
-    }
-
-    public int getRecordId() { return recordId; }
-    public String getBloodType() { return bloodType; }
-    public int getPatientId() { return patientId; }
-    public String getClinicalNotes() { return clinicalNotes; }
-    
     
     public static void addRecord(int patId, int docId, String blood, String notes) throws Exception {
         int newId = DBConnection.getNextId("MEDICAL_RECORD", "Record_ID");

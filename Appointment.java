@@ -1,34 +1,11 @@
 
 package clinicapp;
 
-import java.sql.Date;
-import java.sql.Time;
 import javax.swing.table.DefaultTableModel;
 import java.sql.*;
 public class Appointment {
-    private int apptId;
-    private int patientId;
-    private int doctorId;
-    private Date apptDate;
-    private Time apptTime;
-    private String status;
-
-    public Appointment(int apptId, int patientId, int doctorId, Date apptDate, Time apptTime, String status) {
-        this.apptId = apptId;
-        this.patientId = patientId;
-        this.doctorId = doctorId;
-        this.apptDate = apptDate;
-        this.apptTime = apptTime;
-        this.status = status;
-    }
 
     // Getters
-    public int getApptId() { return apptId; }
-    public int getPatientId() { return patientId; }
-    public int getDoctorId() { return doctorId; }
-    public Date getApptDate() { return apptDate; }
-    public Time getApptTime() { return apptTime; }
-    public String getStatus() { return status; }
     
     public static void loadAppointmentsData(DefaultTableModel model, String currentRole, int currentDoctorId) {
         model.setRowCount(0);
