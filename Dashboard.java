@@ -6,6 +6,12 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.text.ParseException;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
+import javax.swing.text.MaskFormatter;
 
 public class Dashboard extends JFrame {
     private CardLayout cardLayout;
@@ -15,10 +21,62 @@ public class Dashboard extends JFrame {
 
     private DefaultTableModel patientModel, apptModel, docModel, userModel;
     private JPanel patientInputPanel, docInputPanel, apptInputPanel;
+    private JComboBox<Integer> apptPatientCombo, apptDoctorCombo;
 
     private String currentRole;
     private int currentUserId;
     private int currentDoctorId;
+
+    private static class IntDocumentFilter extends DocumentFilter {
+        @Override
+        public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+            if (string != null && string.matches("\\d*")) super.insertString(fb, offset, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+            if (text != null && text.matches("\\d*")) super.replace(fb, offset, length, text, attrs);
+        }
+    }
+
+    private JTextField createIntField() {
+        JTextField field = new JTextField();
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(new IntDocumentFilter());
+        return field;
+    }
+
+    private JFormattedTextField createDateField() {
+        try {
+            MaskFormatter formatter = new MaskFormatter("####-##-##");
+            formatter.setPlaceholderCharacter('_');
+            formatter.setValidCharacters("0123456789");
+            return new JFormattedTextField(formatter);
+        } catch (ParseException ex) {
+            return new JFormattedTextField();
+        }
+    }
+
+    private JFormattedTextField createTimeField() {
+        try {
+            MaskFormatter formatter = new MaskFormatter("##:##:##");
+            formatter.setPlaceholderCharacter('_');
+            formatter.setValidCharacters("0123456789");
+            return new JFormattedTextField(formatter);
+        } catch (ParseException ex) {
+            return new JFormattedTextField();
+        }
+    }
+
+    private void refreshIdCombo(JComboBox<Integer> combo, String tableName, String idColumn) {
+        combo.removeAllItems();
+        try (java.sql.Connection conn = DBConnection.getConnection();
+             java.sql.Statement stmt = conn.createStatement();
+             java.sql.ResultSet rs = stmt.executeQuery("SELECT " + idColumn + " FROM " + tableName + " ORDER BY " + idColumn)) {
+            while (rs.next()) combo.addItem(rs.getInt(1));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
 
     public Dashboard() {
         setTitle("Clinic System - MVC Architecture");
@@ -61,7 +119,7 @@ public class Dashboard extends JFrame {
                     if (currentRole.equalsIgnoreCase("Doctor")) {
                         currentDoctorId = Doctor.getDoctorIdByUserId(currentUserId);
                     }
-
+                    
                     lblWelcome.setText("User: " + txtUsername.getText() + " | Role: " + currentRole);
                     setupRoleBasedUI(); 
                     setSize(1000, 700); setLocationRelativeTo(null);
@@ -101,9 +159,14 @@ public class Dashboard extends JFrame {
         JButton btnLogout = new JButton("Logout");
 
         btnPatients.addActionListener(e -> { Patient.loadPatientsData(patientModel, currentRole, currentDoctorId); cardLayout.show(mainContainer, "Patients"); });
-        btnAppts.addActionListener(e -> { Appointment.loadAppointmentsData(apptModel, currentRole, currentDoctorId); cardLayout.show(mainContainer, "Appointments"); });
+        btnAppts.addActionListener(e -> {
+            refreshIdCombo(apptPatientCombo, "PATIENT", "Patient_ID");
+            refreshIdCombo(apptDoctorCombo, "DOCTOR", "Doctor_ID");
+            Appointment.loadAppointmentsData(apptModel, currentRole, currentDoctorId);
+            cardLayout.show(mainContainer, "Appointments");
+        });
         btnDocs.addActionListener(e -> { Doctor.loadDoctorsData(docModel); cardLayout.show(mainContainer, "Doctors"); });
-        btnUsers.addActionListener(e -> { SystemUser.loadUsersData(userModel); cardLayout.show(mainContainer, "Users"); });
+        btnUsers.addActionListener(e -> { SystemUser.loadUsersDataForpanel(userModel); cardLayout.show(mainContainer, "Users"); });
         btnLogout.addActionListener(e -> { setSize(400, 250); setLocationRelativeTo(null); cardLayout.show(mainContainer, "Login"); });
 
         dashboardButtonsPanel.add(btnPatients); dashboardButtonsPanel.add(btnAppts);
@@ -124,7 +187,7 @@ public class Dashboard extends JFrame {
         patientInputPanel = new JPanel(new GridLayout(1, 9, 5, 5));
         patientInputPanel.setBorder(BorderFactory.createTitledBorder("Add Patient (Auto ID)"));
         JTextField fFirst = new JTextField(); JTextField fLast = new JTextField(); 
-        JTextField fPhone = new JTextField(); JTextField fDOB = new JTextField("YYYY-MM-DD");
+        JTextField fPhone = createIntField(); JTextField fDOB = createDateField();
         JButton btnAdd = new JButton("Add");
 
         patientInputPanel.add(new JLabel("First:")); patientInputPanel.add(fFirst);
@@ -150,18 +213,20 @@ public class Dashboard extends JFrame {
         table.getColumn("Medical Record").setCellRenderer(btnRenderer);
 
         table.addMouseListener(new MouseAdapter() {
-            @Override public void mouseClicked(MouseEvent e) {
+            @Override 
+            public void mouseClicked(MouseEvent e) {
                 int col = table.getColumnModel().getColumnIndexAtX(e.getX());
                 int row = e.getY() / table.getRowHeight();
                 if (row >= 0 && col >= 0) {
                     String colName = table.getColumnName(col);
-                    String action = (String) table.getValueAt(row, col);
-                    int patId = (int) table.getValueAt(row, 0);
-
+                    Object cellValue = table.getValueAt(row, col);
+                    String action = cellValue != null ? String.valueOf(cellValue) : "";
+                    Object idValue = table.getValueAt(row, 0);
+                    int patId = idValue instanceof Number ? ((Number) idValue).intValue() : Integer.parseInt(idValue.toString());
                     if (colName.equals("Emergency")) {
                         if ("Show".equals(action)) JOptionPane.showMessageDialog(panel, EmergencyContact.getContactsInfo(patId));
                         else if (!currentRole.equalsIgnoreCase("Doctor")) addEmergencyDialog(patId);
-                        else JOptionPane.showMessageDialog(panel, "Doctors cannot add emergencies.");
+                        else JOptionPane.showMessageDialog  (panel, "Doctors cannot add emergencies.");
                     } else if (colName.equals("Medical Record")) {
                         if ("Show".equals(action)) JOptionPane.showMessageDialog(panel, MedicalRecord.getRecordsInfo(patId));
                         else if (!currentRole.equalsIgnoreCase("StandardUser")) addMedicalDialog(patId);
@@ -181,8 +246,11 @@ public class Dashboard extends JFrame {
         });
 
         btnAdd.addActionListener(e -> {
-            try { Patient.addPatient(fFirst.getText(), fLast.getText(), fPhone.getText(), fDOB.getText()); Patient.loadPatientsData(patientModel, currentRole, currentDoctorId); }
-            catch (Exception ex) { JOptionPane.showMessageDialog(panel, "Format Error!"); }
+            try {
+                Patient.addPatient(fFirst.getText(), fLast.getText(), fPhone.getText(), fDOB.getText());
+                Patient.loadPatientsData(patientModel, currentRole, currentDoctorId);
+            }
+            catch (Exception ex) { JOptionPane.showMessageDialog(panel, "Use a valid date: YYYY-MM-DD"); }
         });
 
         JPanel bottom = new JPanel(new BorderLayout());
@@ -203,10 +271,23 @@ public class Dashboard extends JFrame {
     }
 
     private void addMedicalDialog(int patId) {
-        JPanel p = new JPanel(new GridLayout(3, 2));
-        JTextField fBlood = new JTextField(); JTextField fDocId = new JTextField(currentRole.equalsIgnoreCase("Doctor") ? String.valueOf(currentDoctorId) : "");
-        JTextField fNotes = new JTextField();
-        p.add(new JLabel("Blood Type:")); p.add(fBlood); p.add(new JLabel("Doc ID:")); p.add(fDocId); p.add(new JLabel("Notes:")); p.add(fNotes);
+        if (currentRole.equalsIgnoreCase("User")){
+            { JOptionPane.showMessageDialog(this, "Only doctor can add record"); }
+            return;
+        }
+        JPanel p = new JPanel(new BorderLayout(5, 5));
+        JPanel top = new JPanel(new GridLayout(2, 2));
+        JTextField fBlood = new JTextField();
+        JTextField fDocId = createIntField();
+        fDocId.setText(currentRole.equalsIgnoreCase("Doctor") ? String.valueOf(currentDoctorId) : "");
+        fDocId.setEditable(!currentRole.equalsIgnoreCase("Doctor"));
+        JTextArea fNotes = new JTextArea(5, 25);
+        fNotes.setLineWrap(true);
+        fNotes.setWrapStyleWord(true);
+        top.add(new JLabel("Blood Type:")); top.add(fBlood); top.add(new JLabel("Doc ID:")); top.add(fDocId);
+        p.add(top, BorderLayout.NORTH);
+        p.add(new JLabel("Notes:"), BorderLayout.WEST);
+        p.add(new JScrollPane(fNotes), BorderLayout.CENTER);
         if (JOptionPane.showConfirmDialog(this, p, "Add Medical Record", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
             try { MedicalRecord.addRecord(patId, Integer.parseInt(fDocId.getText()), fBlood.getText(), fNotes.getText()); Patient.loadPatientsData(patientModel, currentRole, currentDoctorId); } 
             catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error"); }
@@ -217,11 +298,14 @@ public class Dashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         apptInputPanel = new JPanel(new GridLayout(1, 9, 5, 5));
         apptInputPanel.setBorder(BorderFactory.createTitledBorder("Add Appointment (Auto ID)"));
-        JTextField fPatID = new JTextField(); JTextField fDocID = new JTextField(); JTextField fDate = new JTextField("YYYY-MM-DD"); JTextField fTime = new JTextField("HH:MM:SS");
+        apptPatientCombo = new JComboBox<>(); apptDoctorCombo = new JComboBox<>();
+        JTextField fDate = createDateField(); JTextField fTime = createTimeField();
         JButton btnAdd = new JButton("Add");
+        refreshIdCombo(apptPatientCombo, "PATIENT", "Patient_ID");
+        refreshIdCombo(apptDoctorCombo, "DOCTOR", "Doctor_ID");
 
-        apptInputPanel.add(new JLabel("Pat ID:")); apptInputPanel.add(fPatID);
-        apptInputPanel.add(new JLabel("Doc ID:")); apptInputPanel.add(fDocID);
+        apptInputPanel.add(new JLabel("Pat ID:")); apptInputPanel.add(apptPatientCombo);
+        apptInputPanel.add(new JLabel("Doc ID:")); apptInputPanel.add(apptDoctorCombo);
         apptInputPanel.add(new JLabel("Date:")); apptInputPanel.add(fDate);
         apptInputPanel.add(new JLabel("Time:")); apptInputPanel.add(fTime); apptInputPanel.add(btnAdd);
 
@@ -229,7 +313,10 @@ public class Dashboard extends JFrame {
         JTable table = new JTable(apptModel);
 
         btnAdd.addActionListener(e -> {
-            try { Appointment.addAppointment(Integer.parseInt(fPatID.getText()), Integer.parseInt(fDocID.getText()), fDate.getText(), fTime.getText()); Appointment.loadAppointmentsData(apptModel, currentRole, currentDoctorId); } 
+            try {
+                Appointment.addAppointment((Integer) apptPatientCombo.getSelectedItem(), (Integer) apptDoctorCombo.getSelectedItem(), fDate.getText(), fTime.getText());
+                Appointment.loadAppointmentsData(apptModel, currentRole, currentDoctorId);
+            } 
             catch (Exception ex) { JOptionPane.showMessageDialog(panel, "Error"); }
         });
 
@@ -250,25 +337,31 @@ public class Dashboard extends JFrame {
         docInputPanel = new JPanel(new GridLayout(1, 13, 5, 5));
         docInputPanel.setBorder(BorderFactory.createTitledBorder("Add Doctor (Auto ID)"));
         JTextField fFirst = new JTextField(); JTextField fLast = new JTextField(); JTextField fSal = new JTextField(); 
-        JTextField fSpec = new JTextField(); JTextField fDept = new JTextField(); JTextField fUser = new JTextField();
+        JTextField fSpec = new JTextField(); JTextField fDept = createIntField(); JTextField fUsername = new JTextField();
+        JPasswordField fPassword = new JPasswordField();
         JButton btnAdd = new JButton("Add");
 
-        docInputPanel.add(new JLabel("First:")); docInputPanel.add(fFirst); docInputPanel.add(new JLabel("Last:")); docInputPanel.add(fLast);
-        docInputPanel.add(new JLabel("Sal:")); docInputPanel.add(fSal); docInputPanel.add(new JLabel("Spec:")); docInputPanel.add(fSpec);
-        docInputPanel.add(new JLabel("Dept:")); docInputPanel.add(fDept); docInputPanel.add(new JLabel("User:")); docInputPanel.add(fUser); docInputPanel.add(btnAdd);
+        docInputPanel.add(new JLabel("First Name:")); docInputPanel.add(fFirst); docInputPanel.add(new JLabel("Last Name:")); docInputPanel.add(fLast);
+        docInputPanel.add(new JLabel("Salary:")); docInputPanel.add(fSal); docInputPanel.add(new JLabel("Special:")); docInputPanel.add(fSpec);
+        docInputPanel.add(new JLabel("Dept:")); docInputPanel.add(fDept); docInputPanel.add(new JLabel("Username:")); docInputPanel.add(fUsername);
+        docInputPanel.add(new JLabel("Password:")); docInputPanel.add(fPassword); docInputPanel.add(btnAdd);
 
         docModel = new DefaultTableModel(new String[]{"Doctor ID", "First Name", "Last Name", "Salary", "Special", "Dept", "User ID"}, 0);
         JTable table = new JTable(docModel);
 
         btnAdd.addActionListener(e -> {
-            try { Doctor.addDoctor(fFirst.getText(), fLast.getText(), Double.parseDouble(fSal.getText()), fSpec.getText(), Integer.parseInt(fDept.getText()), Integer.parseInt(fUser.getText())); Doctor.loadDoctorsData(docModel); }
+            try {
+                Doctor.addDoctor(fFirst.getText(), fLast.getText(), Double.parseDouble(fSal.getText()), fSpec.getText(), Integer.parseInt(fDept.getText()), fUsername.getText(), new String(fPassword.getPassword()));
+                Doctor.loadDoctorsData(docModel);
+                SystemUser.loadUsersDataForpanel(userModel);
+            }
             catch (Exception ex) { JOptionPane.showMessageDialog(panel, "Error"); }
         });
 
         JButton btnRemove = new JButton("Remove Selected");
         btnRemove.addActionListener(e -> {
             int row = table.getSelectedRow();
-            if (row != -1) try { Doctor.deleteDoctor((int) docModel.getValueAt(row, 0)); Doctor.loadDoctorsData(docModel); } catch(Exception ex){}
+            if (row != -1) try { Doctor.deleteDoctor((int) docModel.getValueAt(row, 0)); Doctor.loadDoctorsData(docModel); SystemUser.loadUsersDataForpanel(userModel); } catch(Exception ex){}
         });
 
         JPanel bottom = new JPanel(new BorderLayout()); bottom.add(btnRemove, BorderLayout.WEST);
@@ -279,11 +372,95 @@ public class Dashboard extends JFrame {
 
     private JPanel createUsersPanel() {
         JPanel panel = new JPanel(new BorderLayout());
+        
+        JPanel userInputPanel = new JPanel(new GridLayout(1, 7, 5, 5));
+        userInputPanel.setBorder(BorderFactory.createTitledBorder("Add User (Auto ID)"));
+        
+        JTextField fUsername = new JTextField();
+        JPasswordField fPassword = new JPasswordField();
+        String[] roleOptions = {"Admin", "User"};
+        JComboBox<String> fRole = new JComboBox<>(roleOptions); 
+        JButton btnAdd = new JButton("Add");
+
+        userInputPanel.add(new JLabel("Username:")); 
+        userInputPanel.add(fUsername);
+        userInputPanel.add(new JLabel("Password:")); 
+        userInputPanel.add(fPassword);
+        userInputPanel.add(new JLabel("Role:")); 
+        userInputPanel.add(fRole);
+        userInputPanel.add(btnAdd);
+
         userModel = new DefaultTableModel(new String[]{"User ID", "Username", "Role Type"}, 0);
-        JButton btnBack = new JButton("Back"); btnBack.addActionListener(e -> cardLayout.show(mainContainer, "Home"));
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT)); bottom.add(btnBack);
-        panel.add(new JLabel("System Users (Read-Only)", SwingConstants.CENTER), BorderLayout.NORTH);
-        panel.add(new JScrollPane(new JTable(userModel)), BorderLayout.CENTER); panel.add(bottom, BorderLayout.SOUTH);
+        JTable table = new JTable(userModel);
+
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                
+                int modelRow = table.convertRowIndexToModel(row);
+                int rowUserId = (int) userModel.getValueAt(modelRow, 0);
+                
+                if (rowUserId == currentUserId) {
+                    c.setBackground(new Color(173, 216, 230)); // Light Blue
+                    c.setForeground(Color.BLACK);
+                } else if (!isSelected) {
+                    c.setBackground(table.getBackground());
+                    c.setForeground(table.getForeground());
+                }
+                return c;
+            }
+        });
+
+        btnAdd.addActionListener(e -> {
+            try {
+                String password = new String(fPassword.getPassword());
+                String selectedRole = (String) fRole.getSelectedItem();
+                
+                User.addUser(fUsername.getText(), password, selectedRole);
+                User.loadUsersDataForpanel(userModel);
+                
+                fUsername.setText("");
+                fPassword.setText("");
+                fRole.setSelectedIndex(0);
+            } catch (Exception ex) { 
+                JOptionPane.showMessageDialog(panel, "Error adding user."); 
+            }
+        });
+
+        JButton btnRemove = new JButton("Remove Selected");
+        btnRemove.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row != -1) {
+                int modelRow = table.convertRowIndexToModel(row);
+                int selectedUserId = (int) userModel.getValueAt(modelRow, 0);
+                
+                // Prevent the active user from deleting their own account
+                if (selectedUserId == currentUserId) {
+                    JOptionPane.showMessageDialog(panel, "You cannot remove your own active account.");
+                    return;
+                }
+                
+                try { 
+                    User.deleteUser(selectedUserId); 
+                    User.loadUsersDataForpanel(userModel); 
+                } catch(Exception ex) {
+                    JOptionPane.showMessageDialog(panel, "Error deleting user.");
+                }
+            }
+        });
+
+        JButton btnBack = new JButton("Back"); 
+        btnBack.addActionListener(e -> cardLayout.show(mainContainer, "Home"));
+        
+        JPanel bottom = new JPanel(new BorderLayout()); 
+        bottom.add(btnRemove, BorderLayout.WEST);
+        bottom.add(btnBack, BorderLayout.EAST);
+
+        panel.add(userInputPanel, BorderLayout.NORTH); 
+        panel.add(new JScrollPane(table), BorderLayout.CENTER); 
+        panel.add(bottom, BorderLayout.SOUTH);
+        
         return panel;
     }
 

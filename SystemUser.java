@@ -15,6 +15,10 @@ public abstract class SystemUser {
         this.passwordHash = passwordHash;
         this.role = role;
     }
+
+    public SystemUser(int userId, String username, String passwordHash, String role) {
+        this(String.valueOf(userId), username, passwordHash, role);
+    }
     
     public static String[] authenticate(String username, String password) throws Exception {
         try (Connection conn = DBConnection.getConnection();
@@ -34,6 +38,16 @@ public abstract class SystemUser {
         } catch (SQLException ex) { ex.printStackTrace(); }
     }
 
+    public static void loadUsersDataForpanel(DefaultTableModel model) {
+        model.setRowCount(0);
+        try (Connection conn = DBConnection.getConnection(); 
+             ResultSet rs = conn.createStatement().executeQuery("SELECT User_ID, Username, Role_Type FROM SYSTEM_USER WHERE Role_Type != 'Doctor'")) {
+            while (rs.next()) model.addRow(new Object[]{rs.getInt(1), rs.getString(2), rs.getString(3)});
+        } catch (SQLException ex) { 
+            ex.printStackTrace(); 
+        }
+    }
+    
     public boolean login(String inputUsername, String inputPassword) {
         return this.username.equals(inputUsername);
     }

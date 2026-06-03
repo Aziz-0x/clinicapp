@@ -1,6 +1,5 @@
 package clinicapp;
 
-import java.util.Date;
 import javax.swing.table.DefaultTableModel;
 import java.sql.*;
 public class Patient {
@@ -60,9 +59,10 @@ public class Patient {
     public static void addPatient(String first, String last, String phone, String dob) throws Exception {
         int newId = DBConnection.getNextId("PATIENT", "Patient_ID");
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("INSERT INTO PATIENT VALUES (?,?,?,?,?, CURRENT_TIMESTAMP)")) {
+             PreparedStatement ps = conn.prepareStatement(
+                 "INSERT INTO PATIENT (Patient_ID, First_Name, Last_Name, Phone_Number, Date_Of_Birth) VALUES (?,?,?,?,?)")) {
             ps.setInt(1, newId); ps.setString(2, first); ps.setString(3, last);
-            ps.setString(4, phone); ps.setDate(5, Date.valueOf(dob));
+            ps.setString(4, phone); ps.setDate(5, java.sql.Date.valueOf(dob));
             ps.executeUpdate();
         }
     }

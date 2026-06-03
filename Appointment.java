@@ -32,6 +32,7 @@ public class Appointment {
     
     public static void loadAppointmentsData(DefaultTableModel model, String currentRole, int currentDoctorId) {
         model.setRowCount(0);
+//        System.out.println(currentDoctorId);
         String sql = currentRole.equalsIgnoreCase("Doctor") ? "SELECT * FROM APPOINTMENT WHERE Doctor_ID = ?" : "SELECT * FROM APPOINTMENT";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             if (currentRole.equalsIgnoreCase("Doctor")) ps.setInt(1, currentDoctorId);
